@@ -1,0 +1,941 @@
+%{
+	// ACKNOWLEDGEMENT: Pavan Kumar V Patil (https://github.com/pavanvpatil/)
+	#include <stdio.h> 
+	#include <string.h> 
+	#include <stdlib.h> 
+	#include<iostream>
+	#include<fstream>
+	#include<sstream>
+	#include<stack>
+	#include<vector>
+	using namespace std;
+
+	int yylex();
+
+	
+	char* variable_type;
+	char* table_names[100];
+	int scope = -1;
+	int number_of_blocks = 0 ;
+	int variable_declaration_bool = 0;
+	int write_bool = 0;
+	int read_bool = 0;
+	int label_number = 1;
+	
+	struct label_stack{
+		int label_value;
+		struct label_stack* next;
+		struct label_stack* previous;
+	};
+
+	struct label_stack* label_head = NULL;
+	struct label_stack* label_tail = NULL;
+
+	struct StringEntry{
+		char* ID;
+		char* Value;
+		int linenumber;
+	};
+
+	struct VariableEntry{
+		char* ID;
+		char* Type;
+		int linenumber;
+	};
+
+	struct SymbolTable{
+		char first;
+		int number_of_variables;
+		int number_of_strings;
+		struct VariableEntry vars[100];
+		struct StringEntry strs[100];
+	};
+
+	struct ASTnode{
+		char* name;
+		char* type;
+		char* value;
+		int size;
+		vector<struct ASTnode*> children;
+
+		ASTnode(){
+			children.push_back(NULL);
+			children.push_back(NULL);
+			size = 3;
+		}
+	};
+
+	struct scope_stack{
+		int scope;
+		struct scope_stack* previous;
+		struct scope_stack* next;
+	};
+	int scope_stack_size = 0;
+	struct scope_stack* head = NULL;
+	struct scope_stack* tail = NULL;
+	struct scope_stack* temp = NULL;
+
+	struct SymbolTable symbol_table[100];
+	int reg_num = 0;
+
+
+	void printfunc(vector<int> &var_type, int register_store[2], int &reg_num, int &flag, ASTnode* root, vector<int> &res, string op){
+		if(register_store[0] == register_store[1])
+		{
+			if(var_type[0]==1 || var_type[1]==1)
+			{
+				cout<<op<<"r "<<root->children[1]->value<<" r"<<register_store[1]-1<<endl;
+				res[1] = 1;
+			}
+			else
+			{
+				cout<<op<<"i "<<root->children[1]->value<<" r"<<register_store[1]-1<<endl;
+				res[1] = 0;
+			}
+		}
+		else
+		{
+			if(var_type[0]==1 || var_type[1]==1)
+			{
+				cout<<"move r"<<register_store[0]-1<<" r"<<reg_num<<endl;
+
+				reg_num++;
+
+				cout<<op<<"r r"<<register_store[1]-1<<" r"<<reg_num-1<<endl;
+				res[1] = 1;
+			}
+			else
+			{
+				cout<<"move r"<<register_store[0]-1<<" r"<<reg_num<<endl;
+				reg_num++;
+
+				cout<<op<<"i r"<<register_store[1] - 1<<" r"<<reg_num-1<<endl;
+				res[1] = 0;
+			}
+		}
+	}
+
+	void printfunc1(vector<int> &var_type, int register_store[2], int &reg_num, int &flag, ASTnode* root, vector<int> &res, string op){
+		if(register_store[0] == register_store[1])
+		{
+			if(var_type[0]==1 || var_type[1]==1)
+			{
+				cout<<op<<"r "<<root->children[1]->value<<" r"<<register_store[1]-1<<endl;
+				res[1] =1;
+			}
+			else
+			{
+				cout<<op<<"i "<<root->children[1]->value<<" r"<<register_store[1]-1<<endl;
+				res[1] = 0;
+			}
+		}
+		else
+		{
+			if(var_type[0]==1 || var_type[1]==1)
+			{
+				cout<<op<<"r r"<<register_store[0]-1<<" r"<<register_store[1]-1<<endl;
+				res[1] = 1;
+			}
+			else
+			{
+				cout<<op<<"i r"<<register_store[0]-1<<" r"<<register_store[1]-1<<endl;
+				res[1] = 0;
+			}
+		}
+	}
+
+	vector<int> postorder( ASTnode* root, int reg_num, int flag){
+		vector<int> res(2,0);
+		vector<int> var_type(2,0);
+		int register_store[2] = {-1,-1};
+		for(int i = 0; i < root->size; i++){
+		    vector<int> ret = postorder(root->children[i],reg_num,i);
+			reg_num = ret[0];
+			var_type[i] = ret[1];
+			register_store[i] = reg_num;
+		}
+		if(root->name == "id"){
+			if(flag == 0)
+			{
+				temp = tail;
+				int check = 0;
+				while(temp != NULL){
+					for(int i = 0; i < symbol_table[temp->scope].number_of_variables; i++){
+						if(!strcmp(symbol_table[temp->scope].vars[i].ID,root->value)){
+							
+							if(!strcmp(symbol_table[temp->scope].vars[i].Type,"INT"))
+								res[1] = 0;
+							else if(!strcmp(symbol_table[temp->scope].vars[i].Type,"FLOAT"))
+								res[1] = 1;
+							cout<<"move "<<root->value<<" r"<<reg_num++<<endl;
+							check = 1;
+							break;
+						}
+					}
+					if(check == 1)
+						break;
+					temp = temp->previous;
+				}
+			}
+		}
+		else if(!strcmp(root->name,"LITERAL"))
+		{
+			if(!strcmp(root->type,"INT"))
+				res[1] = 0;
+			else if(!strcmp(root->type,"FLOAT"))
+				res[1] = 1;
+			cout<<"move "<<root->value<<" r"<<reg_num<<endl;
+			reg_num++;
+		}
+		else if(!strcmp(root->name,"addop")){
+			if(!strcmp(root->value,"+")){
+				printfunc1(var_type, register_store, reg_num, flag, root, res, "add");
+			}
+			else if(!strcmp(root->value,"-")){
+				printfunc(var_type, register_store, reg_num, flag, root, res, "sub");
+			}
+		}
+		else if(!strcmp(root->name,"mulop")){
+			if(!strcmp(root->value,"*")){
+				printfunc1(var_type, register_store, reg_num, flag, root, res, "mul");
+			}
+			else if(!strcmp(root->value,"/")){
+				printfunc(var_type, register_store, reg_num, flag, root, res, "div");
+		    }
+		}
+		res[0] = reg_num; 
+		return res;
+	}
+
+	
+
+	void add_label() {
+    if (!label_head) {
+        label_head = label_tail = new label_stack{ label_number, nullptr, nullptr };
+    } else {
+        label_tail = label_tail->next = new label_stack{ label_number, nullptr, label_tail };
+    }
+    label_number++;
+	}
+
+
+
+	void remove_label(){
+		if(label_head == NULL){
+			return;
+		}
+		if(label_head == label_tail){
+			free(label_head);
+			label_head = label_tail = NULL;
+		}
+		else{
+			label_tail = label_tail->previous;
+			free(label_tail->next);
+			label_tail->next = NULL;
+		}
+	}
+	
+	
+
+	void yyerror(const char *err);
+	extern int yylineno;
+%}
+%locations
+%token PROGRAM
+%token _BEGIN
+%token VOID
+
+%token INT
+%token FLOAT
+%token STRINGLITERAL
+%token STRING
+%token READ
+%token WRITE
+%token FUNCTION
+%token RETURN
+%token IF
+%token ELSE
+%token ENDIF
+%token WHILE
+%token ENDWHILE
+%token END
+%token BREAK
+%token CONTINUE
+%token <s> IDENTIFIER
+%token <s> INTLITERAL
+%token <s> FLOATLITERAL
+%type <var_entry> var_decl param_decl id_list id_tail
+%type <v> var_type
+%type <s_entry> string_decl
+%type <s> str compop
+%type <astnode> assign_expr expr expr_prefix factor factor_prefix primary addop postfix_expr mulop id '+' '-' '*' '/' '(' ')' '=' ';' ','
+
+%union{
+struct SymbolTable * s_table ;
+struct VariableEntry * var_entry ;
+char * v;
+struct StringEntry * s_entry ;
+struct ASTnode * astnode;
+struct scope_stack * scope_stack;
+char * s;
+}
+%%
+program:	PROGRAM id _BEGIN 
+			{
+				scope++; 
+				table_names[scope] = "GLOBAL";
+				symbol_table[scope].first = 'c';
+				symbol_table[scope].number_of_variables = 0;
+				symbol_table[scope].number_of_strings = 0;
+				head = new scope_stack;
+				head->scope = scope;
+				head->previous = NULL;
+				head->next = NULL;
+				tail = head;
+				scope_stack_size++; 
+			}
+			pgm_body END 
+			{
+				
+				
+				cout<<"sys halt\n";
+				temp = tail;
+				tail = tail->previous;
+				scope_stack_size--;
+				free(temp);
+			}
+			;
+id:			IDENTIFIER {
+	
+	 $<astnode>$ = new ASTnode();
+	 $<astnode>$->value = $1;
+	 $<astnode>$->name = "id";
+	 $<astnode>$->size = 0;
+	
+}
+			;
+pgm_body:	decl func_declarations
+			;
+decl:		string_decl decl | var_decl decl |
+			;
+string_decl:	STRING id ':''=' str ';' 
+				{
+					if(symbol_table[scope].first == 'c')
+						symbol_table[scope].first = 's';
+					char* value = $2->value;
+					for(int i = 0; i < symbol_table[scope].number_of_strings; i++ ){
+						if(symbol_table[scope].strs[i].ID == value){
+							return 0;
+						}
+					}
+					for(int i = 0; i < symbol_table[scope].number_of_variables; i++ ){
+						if(symbol_table[scope].vars[i].ID == value){
+							return 0;
+						}
+					}
+					$$ = new StringEntry(); 
+					$$->ID = value; 
+					$$->Value = $5; 
+					$$->linenumber = yylineno; 
+					symbol_table[scope].strs[symbol_table[scope].number_of_strings] = *($$); 
+					symbol_table[scope].number_of_strings++;
+					cout<<"str "<<$$->ID<<" "<<$$->Value<<endl;
+				}
+				;
+str:		STRINGLITERAL {}
+			;
+var_decl:	var_type 
+			{
+				if(symbol_table[scope].first == 'c')
+					symbol_table[scope].first = 'v';
+				variable_declaration_bool = 1;   
+				variable_type = $1;
+			} 
+			id_list ';' {}
+			;
+var_type:	FLOAT {} | INT {} 
+			;
+any_type:	var_type | VOID
+			;
+id_list:	id  
+			{ 
+				if(variable_declaration_bool==1){
+					char* value = $1->value;
+					for(int i = 0; i < symbol_table[scope].number_of_strings; i++ ){
+						if(symbol_table[scope].strs[i].ID == value){
+							return 0;
+						}
+					}
+					for(int i = 0; i < symbol_table[scope].number_of_variables; i++ ){
+						if(symbol_table[scope].vars[i].ID == value){
+							return 0;
+						}
+					}
+					$<var_entry>$ = new VariableEntry();
+					$<var_entry>$->ID = value; 
+					$<var_entry>$->Type = variable_type;
+					$<var_entry>$->linenumber = yylineno;
+					symbol_table[scope].vars[symbol_table[scope].number_of_variables] = *($<var_entry>$); 
+					symbol_table[scope].number_of_variables++;
+					cout<<"var "<<$<var_entry>$->ID<<endl;
+				}
+				if(write_bool == 1){
+					temp = tail;
+					char* value = $1->value;
+					while(temp != NULL){
+						int s = temp->scope;
+						int break_cond = 0; 
+						for(int i = 0; i < symbol_table[s].number_of_variables; i++ ){
+							if(!strcmp(symbol_table[s].vars[i].ID,value)){
+								
+								if(!strcmp(symbol_table[s].vars[i].Type,"FLOAT"))
+									cout<<"sys writer "<<symbol_table[s].vars[i].ID<<endl;
+
+								else if(!strcmp(symbol_table[s].vars[i].Type,"INT"))
+									cout<<"sys writei "<<symbol_table[s].vars[i].ID<<endl;
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						for(int i = 0; i < symbol_table[s].number_of_strings; i++ ){
+							if(!strcmp(symbol_table[s].strs[i].ID,value)){
+								cout<<"sys writes "<<symbol_table[s].strs[i].ID<<endl;
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						temp = temp->previous;
+					}
+				}
+				if(read_bool == 1){
+					temp = tail;
+					char* value = $1->value;
+					while(temp != NULL){
+						int s = temp->scope;
+						int break_cond = 0; 
+						for(int i = 0; i < symbol_table[s].number_of_variables; i++ ){
+							if(!strcmp(symbol_table[s].vars[i].ID,value)){
+								
+								if(!strcmp(symbol_table[s].vars[i].Type,"FLOAT"))
+									cout<<"sys readr "<<symbol_table[s].vars[i].ID<<endl;
+	
+								else if(!strcmp(symbol_table[s].vars[i].Type,"INT"))
+									cout<<"sys readi "<<symbol_table[s].vars[i].ID<<endl;
+
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						for(int i = 0; i < symbol_table[s].number_of_strings; i++ ){
+							if(!strcmp(symbol_table[s].strs[i].ID,value)){
+
+								cout<<"sys reads "<<symbol_table[s].strs[i].ID<<endl;
+								break_cond = 1;
+
+							}
+						}
+						if(break_cond == 1)
+							break;
+						temp = temp->previous;
+					}
+				}
+			} 
+			id_tail {}
+			;
+id_tail:	',' id  
+			{
+				if(variable_declaration_bool==1){
+					char* value = $2->value;
+					for(int i = 0; i < symbol_table[scope].number_of_strings; i++ ){
+						if(!strcmp(symbol_table[scope].strs[i].ID,value)){
+							return 0;
+						}
+					}
+					for(int i = 0; i < symbol_table[scope].number_of_variables; i++ ){
+						if(!strcmp(symbol_table[scope].vars[i].ID,value)){
+							return 0;
+						}
+					}    
+					$<var_entry>$ = new VariableEntry();; 
+					$<var_entry>$->ID = value; 
+					$<var_entry>$->Type = variable_type;
+					$<var_entry>$->linenumber = yylineno;
+					symbol_table[scope].vars[symbol_table[scope].number_of_variables] = *($<var_entry>$); symbol_table[scope].number_of_variables++;
+					cout<<"var "<<$<var_entry>$->ID<<endl;
+				}
+				if(write_bool == 1){
+					char* value = $2->value;
+					temp = tail;
+					while(temp != NULL){
+						int break_cond = 0; 
+
+						int s = temp->scope;
+						for(int i = 0; i < symbol_table[s].number_of_variables; i++ ){
+							if(!strcmp(symbol_table[s].vars[i].ID,value)){
+								if(!strcmp(symbol_table[s].vars[i].Type,"INT"))
+									cout<<"sys writei "<<symbol_table[s].vars[i].ID<<endl;
+								else if(!strcmp(symbol_table[s].vars[i].Type,"FLOAT"))
+									cout<<"sys writer "<<symbol_table[s].vars[i].ID<<endl;
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						for(int i = 0; i < symbol_table[s].number_of_strings; i++ ){
+							if(!strcmp(symbol_table[s].strs[i].ID,value)){
+								cout<<"sys writes "<<symbol_table[s].strs[i].ID<<endl;
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						temp = temp->previous;
+					}
+				}
+				if(read_bool == 1){
+					char* value = $2->value;
+					temp = tail;
+					while(temp != NULL){
+						int break_cond = 0; 
+						int s = temp->scope;
+						for(int i = 0; i < symbol_table[s].number_of_variables; i++ ){
+							if(!strcmp(symbol_table[s].vars[i].ID,value)){
+								if(!strcmp(symbol_table[s].vars[i].Type,"INT"))
+									cout<<"sys readi "<<symbol_table[s].vars[i].ID<<endl;
+								else if(!strcmp(symbol_table[s].vars[i].Type,"FLOAT"))
+									cout<<"sys readr "<<symbol_table[s].vars[i].ID<<endl;
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						for(int i = 0; i < symbol_table[s].number_of_strings; i++ ){
+							if(!strcmp(symbol_table[s].strs[i].ID,value)){
+								cout<<"sys reads "<<symbol_table[s].strs[i].ID<<endl;
+								break_cond = 1;
+							}
+						}
+						if(break_cond == 1)
+							break;
+						temp = temp->previous;
+					}
+				}
+			}
+			id_tail {} | 
+			{
+				variable_declaration_bool = 0;
+			}
+			;
+param_decl_list:	param_decl param_decl_tail |
+					;
+param_decl:	var_type id 
+			{
+				if(symbol_table[scope].first == 'c')
+					symbol_table[scope].first = 'v';
+				char* value = $2->value;
+				for(int i = 0; i < symbol_table[scope].number_of_strings; i++ ){
+					if(!strcmp(symbol_table[scope].strs[i].ID,value)){
+						return 0;
+					}
+				}
+				for(int i = 0; i < symbol_table[scope].number_of_variables; i++ ){
+					if(!strcmp(symbol_table[scope].vars[i].ID,value)){
+						return 0;
+					}
+				}    
+				$$ = new VariableEntry();; 
+				$$->ID = value; 
+				$$->Type = $1; 
+				symbol_table[scope].vars[symbol_table[scope].number_of_variables] = *($$); 
+				symbol_table[scope].number_of_variables++;
+			}
+			;
+param_decl_tail:	',' param_decl param_decl_tail |
+					;
+func_declarations:	func_decl func_declarations |
+					;
+func_decl:	FUNCTION any_type id  
+			{
+				char* value = $3->value;
+				scope++; 
+				table_names[scope] = value;
+				symbol_table[scope].first = 'c'; 
+				symbol_table[scope].number_of_variables = 0; 
+				symbol_table[scope].number_of_strings = 0;
+				temp = (struct scope_stack *)malloc(sizeof(struct scope_stack));
+				temp->scope = scope;
+				temp->next = NULL;
+				temp->previous = tail;
+				tail->next = temp;
+				tail = temp;
+				scope_stack_size++; 
+			}
+			'(' param_decl_list ')' _BEGIN func_body
+			 END
+			 {
+				temp = tail;
+				tail = tail->previous;
+				tail->next = NULL;
+				free(temp);
+				scope_stack_size--;
+			 }
+			;
+func_body:	decl stmt_list 
+			;
+stmt_list:	stmt stmt_list |
+			;
+stmt:		base_stmt | if_stmt | while_stmt
+			;
+base_stmt:	assign_stmt | read_stmt | write_stmt | return_stmt
+			;
+assign_stmt:	assign_expr ';'
+				;
+assign_expr:	id ':''=' expr
+{
+	vector<int> ret = postorder($4,reg_num,0);
+	reg_num = ret[0];
+	cout<<"move r"<<reg_num-1<<" "<<$1->value<<endl;
+};
+read_stmt:	READ
+{
+	read_bool = 1;
+} '(' id_list ')'
+{
+	read_bool = 0;
+}';' 
+			;
+write_stmt:	WRITE
+{
+	write_bool = 1;
+} '(' id_list ')'
+{
+	write_bool = 0;
+}';' 
+			;
+return_stmt:	RETURN expr ';'
+				;
+expr:		expr_prefix factor
+		{
+			//astnode
+			if($1 == NULL)
+			{
+				$<astnode>$ = $2;
+			}
+			else
+			{
+			
+				$1->children[1] = $2;
+				$<astnode>$ = $1;
+			}
+		}
+			;
+expr_prefix:	expr_prefix factor addop 
+			{
+				//astnode
+				if($1 == NULL)
+				{
+					$3->children[0] = $2;
+					$<astnode>$ = $3;
+				}
+				else
+				{
+					$1->children[1] = $2;
+					$3->children[0] = $1;
+					$<astnode>$ = $3;
+				}
+			} |
+			{
+				//astnode
+				$<astnode>$ = NULL;
+			}
+				;
+factor:		factor_prefix postfix_expr
+			{
+				//astnode
+				if($1 == NULL)
+				{
+					$<astnode>$ = $2;
+				}
+				else
+				{
+					$1->children[1] = $2;
+					$<astnode>$ = $1;
+				}
+			}
+			;
+factor_prefix:	factor_prefix postfix_expr mulop 
+				{
+					//astnode
+					if($1 == NULL)
+					{
+						$3->children[0] = $2;
+						$<astnode>$ = $3;
+					}
+					else
+					{
+						$1->children[1] = $2;
+						$3->children[0] = $1;
+						$<astnode>$ = $3;
+					}
+				}| 
+				{
+					//astnode
+					$<astnode>$ = NULL;
+				}
+			;
+postfix_expr:	primary
+				{
+					//astnode
+					$<astnode>$ = $1;
+				}
+				 | call_expr
+				;
+call_expr:	id '(' expr_list ')'
+			;
+expr_list:	expr expr_list_tail |
+			;
+expr_list_tail:	',' expr expr_list_tail |
+				;
+primary:	'(' expr ')'
+			{
+				//astnode
+				$<astnode>$ = $2;
+			} | 
+			id
+			{
+				//astnode
+				$<astnode>$ = $1;
+			} | 
+			INTLITERAL
+			{
+				//astnode
+				$<astnode>$ = new ASTnode();
+				$<astnode>$->name = "LITERAL";
+				$<astnode>$->type = "INT";
+				$<astnode>$->value = $1;
+				$<astnode>$->size = 0;
+			} | 
+			FLOATLITERAL
+			{
+				//astnode
+				$<astnode>$ = new ASTnode();
+				$<astnode>$->name = "LITERAL";
+				$<astnode>$->type = "FLOAT";
+				$<astnode>$->value = $1;
+				$<astnode>$->size = 0;
+			}
+			;
+addop:		'+'
+			{
+				//astnode
+				$<astnode>$ = new ASTnode();
+				$<astnode>$->name = "addop";
+				$<astnode>$->value = "+";
+				$<astnode>$->size = 2;
+			}|
+			'-'
+			{
+				//astnode
+				$<astnode>$ = new ASTnode();
+				$<astnode>$->name = "addop";
+				$<astnode>$->value = "-";
+				$<astnode>$->size = 2;
+			}
+			;
+mulop:		'*'
+			{
+				$<astnode>$ = new ASTnode();
+				$<astnode>$->name = "mulop";
+				$<astnode>$->value = "*";
+				$<astnode>$->size = 2;
+
+			}|
+			'/'
+			{
+				$<astnode>$ = new ASTnode();
+				$<astnode>$->name = "mulop";
+				$<astnode>$->value = "/";
+				$<astnode>$->size = 2;
+			}
+			;
+if_stmt:	IF 
+			{
+				scope++; 
+				table_names[scope] = "BLOCK ";
+				symbol_table[scope].first = 'c'; 
+				symbol_table[scope].number_of_variables = 0; 
+				symbol_table[scope].number_of_strings = 0;
+				temp = (struct scope_stack*)malloc(sizeof(struct scope_stack));
+				temp->scope = scope;
+				temp->next = NULL;
+				temp->previous = tail;
+				tail->next = temp;
+				tail = temp;
+				scope_stack_size++;
+				add_label();
+			}
+			'(' cond ')' decl stmt_list else_part 
+			ENDIF
+			{
+				temp = tail;
+				tail = tail->previous;
+				tail->next = NULL;
+				free(temp);
+				scope_stack_size--;
+				int label_current = label_tail->label_value;
+				char label_string[10];
+				sprintf(label_string, "label%d", label_current);
+				remove_label();
+
+				cout << "label " << label_string << endl;
+			}
+			;
+else_part:	ELSE 
+			{
+				temp = tail;
+				tail = tail->previous;
+				tail->next = NULL;
+				free(temp);
+				scope_stack_size--;
+				scope++; 
+				table_names[scope] = "BLOCK ";
+				symbol_table[scope].first = 'c'; 
+				symbol_table[scope].number_of_variables = 0; 
+				symbol_table[scope].number_of_strings = 0;
+				temp = (struct scope_stack*)malloc(sizeof(struct scope_stack));
+				temp->scope = scope;
+				temp->next = NULL;
+				temp->previous = tail;
+				tail->next = temp;
+				tail = temp;
+				scope_stack_size++;
+
+				int label_current = label_tail->label_value;
+				char label_string1[10];
+				sprintf(label_string1, "label%d", label_current);
+				remove_label();
+				add_label();
+				label_current = label_tail->label_value;
+				char label_string2[10];
+				sprintf(label_string2, "label%d", label_current);
+				cout << "jmp " << label_string2 << endl;
+				cout << "label " << label_string1 << endl;
+
+			}
+			decl stmt_list |
+			;
+cond:		expr compop expr
+			{
+				vector<int>  ret1 = postorder($1,reg_num,0);
+				int reg1 = ret1[0];
+				reg_num = ret1[0];
+				vector<int>  ret2 = postorder($3,reg_num,0);
+				int reg2 = ret2[0];
+				reg_num = ret2[0];
+				int label_current = label_tail->label_value;
+				char label_string[10];
+				sprintf(label_string, "label%d", label_current);
+				if(ret1[1] == 1 || ret2[1] == 1)
+					cout << "cmpr r" << reg1-1 << " r" << reg2-1 << endl;
+				else
+					cout << "cmpi r" << reg1-1 << " r" << reg2-1 << endl;
+				if(!strcmp($2,"<"))
+					cout << "jge " << label_string << endl;
+				else if(!strcmp($2,">"))
+					cout << "jle " << label_string << endl;
+				else if(!strcmp($2,"="))
+					cout << "jne " << label_string << endl;
+				else if(!strcmp($2,"!="))
+					cout << "jeq " << label_string << endl;
+				else if(!strcmp($2,"<="))
+					cout << "jgt " << label_string << endl;
+				else if(!strcmp($2,">="))
+					cout << "jlt " << label_string << endl;
+			}
+			;
+compop:		'<'
+			{$$ = "<";}|
+			'>'
+			{$$ = ">";}|
+			'='
+			{$$ = "=";}|
+			'!''='
+			{$$ = "!=";}|
+			'<''='
+			{$$ = "<=";}|
+			'>''='
+			{$$ = ">=";}
+			;
+while_stmt:	WHILE {
+    scope++; 
+	table_names[scope] = "BLOCK ";
+    symbol_table[scope].first = 'c'; 
+	symbol_table[scope].number_of_variables = 0; 
+	symbol_table[scope].number_of_strings = 0;
+	temp = (struct scope_stack*)malloc(sizeof(struct scope_stack));
+	temp->scope = scope;
+	temp->next = NULL;
+	temp->previous = tail;
+	tail->next = temp;
+	tail = temp;
+	scope_stack_size++;
+} '(' cond ')' decl aug_stmt_list 
+ENDWHILE
+{
+	temp = tail;
+	tail = tail->previous;
+	tail->next = NULL;
+	free(temp);
+	scope_stack_size--;
+}
+			;
+aug_stmt_list: aug_stmt aug_stmt_list| 
+		;
+aug_stmt: base_stmt |aug_if_stmt| while_stmt|CONTINUE';'|BREAK';'
+; 
+aug_if_stmt: IF
+{
+	
+	scope++;
+	table_names[scope] = "BLOCK ";
+	symbol_table[scope].first = 'c';
+	symbol_table[scope].number_of_variables = 0;
+	symbol_table[scope].number_of_strings = 0;
+	tail->next = new scope_stack{ scope, nullptr, tail };
+	tail = tail->next;
+	scope_stack_size++;
+} '(' cond ')' decl aug_stmt_list aug_else_part 
+ENDIF
+{
+	temp = tail;
+	tail = tail->previous;
+	tail->next = NULL;
+	free(temp);
+	scope_stack_size--;
+}
+; 
+aug_else_part: ELSE
+{
+	
+	tail = tail->previous;
+	free(tail->next);
+	tail->next = nullptr;
+	--scope_stack_size;
+
+	++scope;
+	table_names[scope] = "BLOCK ";
+	symbol_table[scope].first = 'c';
+	symbol_table[scope].number_of_variables = 0;
+	symbol_table[scope].number_of_strings = 0;
+
+	auto temp = new scope_stack{scope, tail, nullptr};
+	tail->next = temp;
+	tail = temp;
+	++scope_stack_size;
+	
+} decl aug_stmt_list|
+;
+%%

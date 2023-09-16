@@ -1,0 +1,54 @@
+{
+  "tests": [
+    {
+      "name": "test1",
+      "setup": "wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/pa4_test_combination.sh;chmod +x pa4_test_combination.sh;wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/tinyNew.cpp",
+      "run": "./pa4_test_combination.sh | grep -q \"Test passed.\"",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 3,
+      "points": 1
+    },
+    {
+      "name": "test2",
+      "setup": "wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/pa4_test_complex.sh;chmod +x pa4_test_complex.sh;wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/tinyNew.cpp",
+      "run": "./pa4_test_complex.sh | grep -q \"Test passed.\"",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 3,
+      "points": 1
+    },
+    {
+      "name": "test3",
+      "setup": "wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/pa4_test_if.sh;chmod +x pa4_test_if.sh;wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/tinyNew.cpp",
+      "run": "./pa4_test_if.sh | grep -q \"Test passed.\"",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 3,
+      "points": 1
+    },
+    {
+      "name": "test4",
+      "setup": "wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/pa4_test_expr.sh;chmod +x pa4_test_expr.sh;wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/tinyNew.cpp",
+      "run": "./pa4_test_expr.sh | grep -q \"Test passed.\"",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 3,
+      "points": 1
+    },
+    {
+      "name": "test5",
+      "setup": "wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/pa4_test_mult.sh;wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/test_mult.input;chmod +x pa4_test_mult.sh;wget https://hegden.github.io/cs406/sp22/homeworks/pa4tests/tinyNew.cpp",
+      "run": "./pa4_test_mult.sh | grep -q \"Test passed.\"",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 3,
+      "points": 1
+    }
+  ]
+}

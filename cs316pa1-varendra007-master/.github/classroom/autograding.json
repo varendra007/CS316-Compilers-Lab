@@ -1,0 +1,94 @@
+{
+  "tests": [
+    {
+      "name": "test_make_dev",
+      "setup": "",
+      "run": "make dev",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 2
+    },
+    {
+      "name": "test_make_clean",
+      "setup": "",
+      "run": "make clean",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 2
+    },
+    {
+      "name": "test_make_compiler",
+      "setup": "",
+      "run": "make compiler",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 2
+    },
+    {
+      "name": "test_input2",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/nested.micro delme.txt",
+      "run": "diff delme.txt outputs/nested.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 1
+    },
+    {
+      "name": "test_input3",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/loop.micro delme.txt",
+      "run": "diff delme.txt outputs/loop.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 1
+    },
+    {
+      "name": "test_input4",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/loopbreak.micro delme.txt",
+      "run": "diff delme.txt outputs/loopbreak.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 1
+    },
+    {
+      "name": "test_input5",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/fibonacci.micro delme.txt",
+      "run": "diff delme.txt outputs/fibonacci.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 1
+    },
+    {
+      "name": "test_input6",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/sqrt.micro delme.txt",
+      "run": "diff delme.txt outputs/sqrt.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 1
+    },
+    {
+      "name": "test_input1",
+      "setup": "rm -rf inputs outputs;unzip inputs.zip;unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/empty.micro delme.txt",
+      "run": "diff outputs/empty.out delme.txt",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 1
+    }
+  ]
+}

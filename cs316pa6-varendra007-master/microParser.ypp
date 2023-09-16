@@ -1,0 +1,1171 @@
+%{
+	// ACKNOWLEDGEMENT: Pavan Kumar V Patil
+	// We have discussed the code together and have written the code together but separately.
+	#include <bits/stdc++.h> 
+
+	using namespace std;
+
+	int yylex();
+
+	
+	string variable_type;
+	vector<string> table_names;
+	int scope = -1;
+	int number_of_blocks = 0 ;
+	int variable_declaration_bool = 0;
+	int write_bool = 0;
+	int read_bool = 0;
+	int label_number = 1;
+	int while_label_number = 1;
+	int current_scope_function = 0;
+
+	bool if_bool = false;
+	bool while_bool = false;
+	bool func_var_decl = false;
+	bool is_scope_variable_decl = false;
+	
+	stack<string> label_stack;
+	stack<string> while_label_stack;
+
+	stringstream output;
+	stringstream function_code;
+	stringstream global_variables;
+
+
+	struct StringEntry{
+		string ID;
+		string Value;
+		int linenumber;
+		int link_no;
+		StringEntry(){}
+
+		StringEntry(string id, string value, int line){
+			this->ID = id;
+			this->Value = value;
+			this->linenumber = line;
+		}
+	};
+
+	struct VariableEntry{
+		string ID;
+		string Type;
+		int linenumber;
+		int link_no;
+		VariableEntry(){}
+
+		VariableEntry(string id, string type, int line){
+			this->ID = id;
+			this->Type = type;
+			this->linenumber = line;
+		}
+	};
+
+	struct SymbolTable{
+		char first;
+		int number_of_variables;
+		int number_of_strings;
+		bool is_function;
+		string function_return_type;
+		int function_parameter_count;
+		int function_local_variable_count;
+		vector<int> registers;
+		vector<struct VariableEntry> vars;
+		vector<struct StringEntry> strs;
+		unordered_map<string,pair<int,struct VariableEntry>> var_map;
+		unordered_map<string,pair<int,struct StringEntry>> str_map;
+
+		SymbolTable(char c){
+			this->number_of_variables = 0;
+			this->number_of_strings = 0;
+			this->first = c;
+			this->is_function = false;
+		}
+
+		SymbolTable(char c, string type, int param_count, int local_count){
+			number_of_variables = 0;
+			number_of_strings = 0;
+			first = c;
+			is_function = true;
+			function_return_type = type;
+			function_parameter_count = param_count;
+			function_local_variable_count = local_count;
+		}
+	};
+
+
+	struct ASTnode{
+		string name;
+		string type;
+		string value;
+		bool is_function;
+		vector<struct ASTnode*> children;
+		vector<struct ASTnode*> parameters;
+
+		ASTnode(string n, string t, string v){
+			this->name = n;
+			this->type = t;
+			this->value = v;
+			this->is_function = false;
+		}
+
+		ASTnode(string n, string t, string v, bool f){
+			this->name = n;
+			this->type = t;
+			this->value = v;
+			this->is_function = f;
+		}
+	};
+
+	struct scope_stack{
+		int scope;
+		struct scope_stack* previous;
+		struct scope_stack* next;
+
+		scope_stack(int s){
+			this->scope = s;
+			this->previous = NULL;
+			this->next = NULL;
+		}
+		scope_stack(){}
+	};
+
+	int scope_stack_size = 0;
+	struct scope_stack* head = NULL;
+	struct scope_stack* tail = NULL;
+	struct scope_stack* temp = NULL;
+
+	vector<struct SymbolTable> symbol_table;
+	int register_number = 0;
+
+	
+
+	int is_scope_variable(const string& id) {
+		for (auto temp = tail; temp != nullptr; temp = temp->previous) {
+			int scope = temp->scope;
+			for (const auto& var : symbol_table[scope].vars) {
+				if (var.ID == id) {
+					return scope;
+				}
+			}
+		}
+		return -1;
+	}
+
+	string function_variable_offset(const string& id, int scope) {
+		int index = symbol_table[scope].var_map[id].first;
+		int total_parameter_count = symbol_table[scope].function_parameter_count;
+		int offset = (index < 0) ? index : (total_parameter_count - index) + 2;
+		return "$" + to_string(offset);
+	}
+
+	vector<int> call_expr_registers(vector<int>& registers) {
+		vector<int> tmp_reg;
+		for (int reg : symbol_table[current_scope_function].registers) {
+			function_code << "push r" << reg << "\n";
+			tmp_reg.push_back(reg);
+		}
+		return tmp_reg;
+	}
+
+	int call_expr_scope(const string& func_) {
+		for (size_t i = 0; i < table_names.size(); ++i) {
+			if (table_names[i] == func_) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	void call_expr_type_handle(ASTnode* root, vector<int>& res, const string& return_type) {
+		for (size_t i = 0; i < root->parameters.size(); ++i) {
+			function_code << "pop  " << "\n";
+		}
+	}
+
+	void handle_id_scope_(ASTnode* root, SymbolTable& smt, int& register_number) {
+		auto& var = smt.var_map[root->value];
+		int index = var.first;
+		int total_parameter_count = smt.function_parameter_count;
+		int offset = (index < 0) ? index : (total_parameter_count - index) + 2;
+		function_code << "move " << "$" << offset << " r" << register_number << "\n";
+	}
+
+
+	
+
+	void handle_op_n(ASTnode *root, vector<int> &res, vector<int> &int_float, vector<int> &register_store, string type_, int &register_number){
+		if(register_store[0] == register_store[1])
+		{
+			int temp_scope = is_scope_variable(root->children[1]->value);
+			string value = root->children[1]->value;
+			if(temp_scope != -1 && temp_scope != 0)
+			{
+				value = function_variable_offset(root->children[1]->value,temp_scope);
+			}
+			if(int_float[0]==1 || int_float[1]==1)
+			{
+				function_code << type_ <<"r " << value << " r" << register_store[1]-1 << "\n";
+				res[1] = 1;
+			}
+			else
+			{
+				function_code << type_ <<"i " << value << " r" << register_store[1]-1 << "\n";
+				res[1] = 0;
+			}
+		}
+		else
+		{
+			if(int_float[0]==1 || int_float[1]==1)
+			{
+				function_code << "move r" << register_store[0]-1 << " r" << register_number << "\n";
+				symbol_table[current_scope_function].registers.push_back(register_number);
+				register_number++;
+				function_code << type_ <<"r r" << register_store[1]-1 << " r" << register_number-1 << "\n";
+				res[1] = 1;
+			}
+			else
+			{
+				function_code << "move r" << register_store[0]-1 << " r" << register_number << "\n";
+				symbol_table[current_scope_function].registers.push_back(register_number);
+				register_number++;
+				function_code << type_ <<"i r" << register_store[1]-1 << " r" << register_number-1 << "\n";
+				res[1] = 0;
+			}
+		}
+	}
+
+	void handle_op_p(ASTnode* root, vector<int>& res, const vector<int>& int_float, const vector<int>& register_store, const string& type_) {
+		string value = root->children[1]->value;
+		int temp_scope = is_scope_variable(value);
+		if (temp_scope != -1 && temp_scope != 0) {
+			value = function_variable_offset(value, temp_scope);
+		}
+
+		string reg_type = (int_float[0] == 1 || int_float[1] == 1) ? "r" : "i";
+		res[1] = (reg_type == "r") ? 1 : 0;
+		function_code << type_ << reg_type << " ";
+
+		if (register_store[0] == register_store[1]) {
+			function_code << value << " r" << register_store[1] - 1 << "\n";
+		} else {
+			function_code << "r" << register_store[0] - 1 << " r" << register_store[1] - 1 << "\n";
+		}
+	}
+
+	
+
+
+	vector<int> postorder(ASTnode* root, int register_number, int flag) {
+		vector<int> res(2, 0);
+		vector<int> int_float(2, 0);
+		vector<int> register_store(2, -1);
+
+		for (int i = 0; i < root->children.size(); i++) {
+			vector<int> ret = postorder(root->children[i], register_number, i);
+			register_number = ret[0];
+			int_float[i] = ret[1];
+			register_store[i] = register_number;
+		}
+		
+		const string& name = root->name;
+		if (name == "CALL_EXPR") {
+			vector<int> temp_registers = call_expr_registers(symbol_table[current_scope_function].registers);
+			string func_ = root->value;
+			int temp_scope = call_expr_scope(func_);
+			string return_type = symbol_table[temp_scope].function_return_type;
+
+			function_code << "push  " << "\n";
+
+			for (auto& param : root->parameters) {
+				vector<int> temp = postorder(param, register_number, 0);
+				register_number = temp[0];
+				function_code << "push r" << register_number - 1 << "\n";
+			}
+
+			function_code << "jsr " << root->value << "\n";
+			call_expr_type_handle(root, res, return_type);
+
+			
+			function_code << "pop r" << register_number << "\n";
+			symbol_table[current_scope_function].registers.push_back(register_number);
+			res[1] = (return_type == "FLOAT") ? 1 : 0;
+			register_number++;
+
+			reverse(temp_registers.begin(), temp_registers.end());
+			for (auto i : temp_registers) {
+				function_code << "pop r" << i << "\n";
+			}
+		} else if (name == "id" && flag == 0) {
+			temp = tail;
+			int check = 0;
+			while (temp != NULL && check == 0) {
+				SymbolTable& smt = symbol_table[temp->scope];
+				for (int i = 0; i < smt.vars.size(); i++) {
+					if (smt.vars[i].ID == root->value) {
+						if (temp->scope != 0) {
+							handle_id_scope_(root, smt, register_number);
+						} else {
+							function_code << "move " << root->value << " r" << register_number << "\n";
+						}
+						symbol_table[current_scope_function].registers.push_back(register_number);
+						check = 1;
+						res[1] = (smt.vars[i].Type == "FLOAT") ? 1 : 0;
+						register_number++;
+						break;
+					}
+				}
+				temp = temp->previous;
+			}
+		} else if (name == "LITERAL") {
+			symbol_table[current_scope_function].registers.push_back(register_number);
+			res[1] = (root->type == "FLOAT") ? 1 : 0;
+			function_code << "move " << root->value << " r" << register_number++ << "\n";
+		} else if (name == "addop" || name == "mulop") {
+			string op_type;
+			if (root->value == "+") op_type = "add";
+			else if (root->value == "-") op_type = "sub";
+			else if (root->value == "*") op_type = "mul";
+			else if (root->value == "/") op_type = "div";
+
+			if (op_type == "add" || op_type == "mul") {
+				handle_op_p(root, res, int_float, register_store, op_type);
+			} else if (op_type == "sub" || op_type == "div") {
+				handle_op_n(root, res, int_float, register_store, op_type, register_number);
+			}
+		}
+		res[0] = register_number;
+		return res;
+	}
+
+
+	
+	int string_var_decl(const string &value) {
+		for (const auto &str_entry : symbol_table[scope].strs) {
+			if (str_entry.ID == value) return 1;
+		}
+
+		for (const auto &var_entry : symbol_table[scope].vars) {
+			if (var_entry.ID == value) return 1;
+		}
+
+		return 0;
+	}
+
+	void print_read_write(const string &value_, const string &type, const string &data_type) {
+		function_code << "sys " << type << data_type << " " << value_ << "\n";
+	}
+
+	void handle_read_write(string &value, const string &type) {
+		while (temp != nullptr) {
+			int s = temp->scope;
+			auto var_it = find_if(symbol_table[s].vars.begin(), symbol_table[s].vars.end(),
+								[&](const VariableEntry &var) { return var.ID == value; });
+
+			if (var_it != symbol_table[s].vars.end()) {
+				string value_1 = value;
+				if (s != -1 && s != 0) {
+					value_1 = function_variable_offset(value, s);
+				}
+
+				if (var_it->Type == "INT") {
+					print_read_write(value_1, type, "i");
+				} else if (var_it->Type == "FLOAT") {
+					print_read_write(value_1, type, "r");
+				}
+				break;
+			}
+
+			auto str_it = find_if(symbol_table[s].strs.begin(), symbol_table[s].strs.end(),
+								[&](const StringEntry &str) { return str.ID == value; });
+
+			if (str_it != symbol_table[s].strs.end()) {
+				function_code << "sys " << type << "s " << str_it->ID << "_" << s << "\n";
+				break;
+			}
+
+			temp = temp->previous;
+		}
+	}
+
+	void handle_write(string &value) {
+		handle_read_write(value, "write");
+	}
+
+	void handle_read(string &value) {
+		handle_read_write(value, "read");
+	}
+
+	void handle_paramenter_decl(string &value, int &yylineno, string &variable_type){
+		struct VariableEntry * var_ent = new VariableEntry(value,variable_type,yylineno);
+
+		symbol_table[scope].vars.push_back(*var_ent);
+
+		symbol_table[scope].number_of_variables++;
+
+		symbol_table[current_scope_function].function_parameter_count++;
+
+		symbol_table[scope].var_map[value] = make_pair(symbol_table[current_scope_function].function_parameter_count,*var_ent);
+	}
+	void handle_scope_var_decl(string &value, int &yylineno, string &variable_type){
+		struct VariableEntry * var_ent = new VariableEntry(value,variable_type,yylineno);
+
+		symbol_table[scope].vars.push_back(*var_ent);
+
+		symbol_table[scope].number_of_variables++;
+
+		symbol_table[current_scope_function].function_local_variable_count--;
+
+		symbol_table[scope].var_map[value] = make_pair(symbol_table[current_scope_function].function_local_variable_count,*var_ent);
+	}
+
+	void handle_global_var_decl(string &value, int &yylineno, string &variable_type){
+
+		struct VariableEntry * var_ent = new VariableEntry(value,variable_type,yylineno);
+		symbol_table[scope].vars.push_back(*var_ent);
+
+		if(scope == 0)
+		{
+			global_variables << "var " << var_ent->ID << "\n";
+		}
+
+		symbol_table[scope].number_of_variables++;
+
+		
+		
+	}
+
+	void handle_if(){
+		scope++;
+		table_names.emplace_back("BLOCK ");
+		SymbolTable blockSymbol('c');
+		symbol_table.push_back(blockSymbol);
+
+		scope_stack *newNode = new scope_stack(scope);
+		newNode->previous = tail;
+		tail->next = newNode;
+		tail = newNode;
+
+	}
+
+	void tail_previous(){
+		temp = tail;
+		tail = tail->previous;
+		tail->next = NULL;
+		delete temp;
+	}
+
+	void add_tail(){
+		temp = new scope_stack(scope);
+		temp->previous = tail;
+		tail->next = temp;
+		tail = temp;
+	}
+
+	string getLabelString(bool if_bool, bool while_bool, stack<string> &label_stack, stack<string> &while_label_stack)
+	{
+		if (if_bool)
+		{
+			return label_stack.top();
+		}
+
+		if (while_bool)
+		{
+			string label_temp = while_label_stack.top();
+			while_label_stack.pop();
+			string label_string = while_label_stack.top();
+			while_label_stack.push(label_temp);
+			return label_string;
+		}
+
+		return "";
+	}
+
+	void yyerror(const char *err);
+	extern int yylineno;
+%}
+%locations
+%token PROGRAM
+%token _BEGIN
+%token VOID
+
+%token INT
+%token FLOAT
+%token STRINGLITERAL
+%token STRING
+%token READ
+%token WRITE
+%token FUNCTION
+%token RETURN
+%token IF
+%token ELSE
+%token ENDIF
+%token WHILE
+%token ENDWHILE
+%token END
+%token BREAK
+%token CONTINUE
+%token <s> IDENTIFIER
+%token <s> INTLITERAL
+%token <s> FLOATLITERAL
+%type <var_entry> var_decl param_decl id_list id_tail
+%type <v> var_type any_type
+%type <s_entry> string_decl
+%type <s> str 
+%type <s> compop
+%type <astnode> assign_expr expr expr_prefix factor factor_prefix primary addop postfix_expr mulop id call_expr expr_list expr_list_tail '+' '-' '*' '/' '(' ')' '=' ';' ','
+
+%union{
+struct VariableEntry * var_entry ;
+struct StringEntry * s_entry ;
+struct ASTnode * astnode;
+char* s;
+char* v;
+}
+
+%%
+program:	PROGRAM id _BEGIN 
+			{
+				scope++;
+				table_names.push_back("GLOBAL");
+				SymbolTable sym_temp('c'); 
+				symbol_table.push_back(sym_temp);
+				head = new scope_stack(scope);
+				tail = head; 
+			}
+			pgm_body END 
+			{
+				
+				cout << global_variables.str();
+				string function_name = "main";
+				int temp_scope = -1;
+				for(int i=0;i<table_names.size();i++)
+				{
+					if(table_names[i] == function_name)
+					{
+						temp_scope = i;
+						break;
+					}
+				}
+				if(temp_scope == -1)
+				{
+					cout << "ERROR: main function not found" << "\n";
+				}
+				else
+				{
+					
+					cout << "push  " << "\n";
+					cout << "jsr main" << "\n";
+					cout << "pop  " << "\n";
+					cout << "sys halt" << "\n";
+					cout << output.str();
+				}
+
+				temp = tail;
+				tail = tail->previous;
+				free(temp);
+				scope_stack_size--;
+			}
+			;
+id:			IDENTIFIER {
+	 $<astnode>$ = new ASTnode("id", "", $1);
+}
+			;
+pgm_body:	decl func_declarations
+			;
+decl:		string_decl decl | var_decl decl |
+			;
+string_decl:	STRING id ':''=' str ';' 
+				{
+					if(symbol_table[scope].first == 'c')
+						symbol_table[scope].first = 's';
+					string value = $2->value;
+					
+					if (string_var_decl(value)){
+						return 0;
+					}
+					
+					$$ = new StringEntry(value,$5,yylineno);
+					symbol_table[scope].strs.push_back(*$$); 
+					symbol_table[scope].number_of_strings++;
+					global_variables << "str " << $$->ID <<"_"<< scope << " " << $$->Value << "\n";
+				}
+				;
+str:		STRINGLITERAL {}
+			;
+var_decl:	var_type 
+			{
+				if(symbol_table[scope].first == 'c')
+					symbol_table[scope].first = 'v';
+				if(scope == 0)
+				{
+					is_scope_variable_decl = false;
+					variable_declaration_bool = 1;   
+				}
+				else
+				{
+					variable_declaration_bool = 0;
+					is_scope_variable_decl = true;
+				}
+				variable_type = $1;
+			} 
+			id_list ';' {}
+			;
+var_type:	FLOAT {} | INT {} 
+			;
+any_type:	var_type {} | VOID {}
+			;
+id_list:	id  
+			{ 
+				if(variable_declaration_bool==1){
+					string value = $1->value;
+
+				
+
+					if (string_var_decl(value)){
+						return 0;
+					}
+
+					handle_global_var_decl(value, yylineno, variable_type);
+					
+					
+				}
+				if(write_bool == 1){
+					string value = $1->value;
+					temp = tail;
+					handle_write(value);
+					
+				}
+				if(read_bool == 1){
+					string value = $1->value;
+					temp = tail;
+					
+					handle_read(value);
+				}
+				if(is_scope_variable_decl == true)
+				{
+					string value = $1->value;
+					handle_scope_var_decl(value, yylineno, variable_type);
+					
+				}
+			} 
+			id_tail {}
+			;
+id_tail:	',' id  
+			{
+				if(variable_declaration_bool==1){
+					string value = $2->value;
+					 
+
+					if( string_var_decl(value)){
+						return 0;
+					}
+
+					handle_global_var_decl(value, yylineno, variable_type);
+
+					
+				}
+				if(write_bool == 1){
+					string value = $2->value;
+					temp = tail;
+					
+					handle_write(value);
+				}
+				if(read_bool == 1){
+					string value = $2->value;
+					temp = tail;
+					
+					handle_read(value);
+				}
+				if(is_scope_variable_decl == true)
+				{
+					string value = $2->value;
+					handle_scope_var_decl(value, yylineno, variable_type);
+					
+				}
+			}
+			id_tail {} | 
+			{
+				variable_declaration_bool = 0;
+				is_scope_variable_decl = false;
+			}
+			;
+param_decl_list:	param_decl param_decl_tail |
+					;
+param_decl:	var_type id 
+			{
+				if(symbol_table[scope].first == 'c')
+					symbol_table[scope].first = 'v';
+				string value = $2->value;
+				
+
+				if (string_var_decl(value)){
+					return 0;
+				} 
+				
+				string v_type = $1;
+				handle_paramenter_decl(value, yylineno, v_type);
+				
+				
+			}
+			;
+param_decl_tail:	',' param_decl param_decl_tail |
+					;
+func_declarations:	func_decl func_declarations |
+					;
+func_decl:	FUNCTION any_type id  
+			{
+				scope++; 
+				table_names.push_back($3->value);
+				SymbolTable sys_temp('c',$2,0,0);
+				symbol_table.push_back(sys_temp);
+
+				add_tail();
+				current_scope_function = scope;
+				
+				
+				symbol_table[scope].function_parameter_count++;
+				struct VariableEntry temp_var("RETURN",$2,yylineno);
+				symbol_table[scope].vars.push_back(temp_var);
+				symbol_table[scope].var_map["RETURN"] = make_pair(symbol_table[scope].function_parameter_count,VariableEntry("RETURN","",yylineno));
+
+				func_var_decl = true;
+
+			}
+			'(' param_decl_list ')' _BEGIN func_body
+			 END
+			 {
+				
+				output << "label " << table_names[current_scope_function] << "\n";
+				output << "link " << (symbol_table[current_scope_function].function_local_variable_count)*(-1) << "\n";
+
+				function_code << "unlnk" << "\n";
+				function_code << "ret" << "\n";
+				output << function_code.str();
+				function_code.str("");
+
+				current_scope_function = 0;
+
+				tail_previous();
+			
+				scope_stack_size--;
+			 }
+			;
+func_body:	decl{
+					func_var_decl = false;
+				} stmt_list 
+			;
+stmt_list:	stmt stmt_list |
+			;
+stmt:		base_stmt | if_stmt | while_stmt
+			;
+base_stmt:	assign_stmt | read_stmt | write_stmt | return_stmt
+			;
+assign_stmt:	assign_expr ';'
+				;
+assign_expr:	id ':''=' expr
+{
+	vector<int> ret = postorder($4,register_number,0);
+	register_number = ret[0];
+	int temp_scope = is_scope_variable($1->value);
+	string value = $1->value;
+	if(temp_scope != -1 && temp_scope != 0)
+	{
+		value = function_variable_offset($1->value,temp_scope);
+	}
+	function_code << "move r" << register_number-1 << " " << value << "\n";
+};
+read_stmt:	READ
+{
+	read_bool = 1;
+} '(' id_list ')'
+{
+	read_bool = 0;
+}';' 
+			;
+write_stmt:	WRITE
+{
+	write_bool = 1;
+} '(' id_list ')'
+{
+	write_bool = 0;
+}';' 
+			;
+return_stmt:	RETURN expr
+				{
+					vector<int> ret = postorder($2,register_number,0);
+					register_number = ret[0];
+					int temp_scope = is_scope_variable("RETURN");
+					string value = "RETURN";
+					if(!(temp_scope == -1 || temp_scope == 0))
+					{
+						value = function_variable_offset("RETURN",temp_scope);
+					}
+					function_code << "move r" << register_number-1 << " " << value << "\n";
+					function_code<< "unlnk" << "\n";
+					function_code<< "ret" << "\n";
+				} ';'
+				;
+expr:		expr_prefix factor
+		{
+			if($1 == NULL)
+			{
+				$<astnode>$ = $2;
+			}
+			else
+			{
+			
+				$1->children[1] = $2;
+				$<astnode>$ = $1;
+			}
+		}
+			;
+expr_prefix:	expr_prefix factor addop 
+			{
+				if($1 == NULL)
+				{
+					$3->children[0] = $2;
+					$<astnode>$ = $3;
+				}
+				else
+				{
+					$1->children[1] = $2;
+					$3->children[0] = $1;
+					$<astnode>$ = $3;
+				}
+			} |
+			{
+				$<astnode>$ = NULL;
+			}
+				;
+factor:		factor_prefix postfix_expr
+			{
+				if($1 == NULL)
+				{
+					$<astnode>$ = $2;
+				}
+				else
+				{
+					$1->children[1] = $2;
+					$<astnode>$ = $1;
+				}
+			}
+			;
+factor_prefix:	factor_prefix postfix_expr mulop 
+				{
+					if($1 == NULL)
+					{
+						$3->children[0] = $2;
+						$<astnode>$ = $3;
+					}
+					else
+					{
+						$1->children[1] = $2;
+						$3->children[0] = $1;
+						$<astnode>$ = $3;
+					}
+				}| 
+				{
+					$<astnode>$ = NULL;
+				}
+			;
+postfix_expr:	primary
+				{
+					$<astnode>$ = $1;
+				}
+				 | call_expr
+				 {
+					$<astnode>$ = $1;
+				 }
+				;
+call_expr:	id '(' expr_list ')'
+			{
+				$<astnode>$ = new ASTnode("CALL_EXPR","",$1->value,true);
+				if($3 != NULL)
+				{
+					for(int i=0;i<$3->parameters.size();i++)
+					{
+						$<astnode>$->parameters.push_back($3->parameters[i]);
+					}
+				}
+			}
+			;
+expr_list:	expr expr_list_tail
+			{
+				$<astnode>$ = new ASTnode("EXPR_LIST","","");
+				$<astnode>$->parameters.push_back($1);
+				if($2 != NULL)
+				{
+					for(int i=0;i<$2->parameters.size();i++)
+					{
+						$<astnode>$->parameters.push_back($2->parameters[i]);
+					}
+				}
+			}
+			|{
+				$<astnode>$ = NULL;
+			}
+			;
+expr_list_tail:	',' expr expr_list_tail
+					{
+						$<astnode>$ = new ASTnode("EXPR_LIST","","");
+						$<astnode>$->parameters.push_back($2);
+						if($3 != NULL)
+						{
+							for(int i=0;i<$3->parameters.size();i++)
+							{
+								$<astnode>$->parameters.push_back($3->parameters[i]);
+							}
+						}
+					}
+					|{
+						$<astnode>$ = NULL;
+					}
+				;
+primary:	'(' expr ')'
+			{
+				$<astnode>$ = $2;
+			} | 
+			id
+			{
+				$<astnode>$ = $1;
+			} | 
+			INTLITERAL
+			{
+				$<astnode>$ = new ASTnode("LITERAL","INT",$1);
+				
+				ASTnode *temp_node = new ASTnode("","","");
+
+				$<astnode>$->children.push_back(temp_node);
+			} | 
+			FLOATLITERAL
+			{
+				$<astnode>$ = new ASTnode("LITERAL","FLOAT",$1);
+				
+				ASTnode *temp_node = new ASTnode("","","");
+
+				$<astnode>$->children.push_back(temp_node);
+			}
+			;
+addop:		'+'
+			{
+				$<astnode>$ = new ASTnode("addop","","+");
+				
+				ASTnode *temp_node1 = new ASTnode("","","");
+				ASTnode *temp_node2 = new ASTnode("","","");
+
+				$<astnode>$->children.push_back(temp_node1);
+				$<astnode>$->children.push_back(temp_node2);
+			}|
+			'-'
+			{
+				$<astnode>$ = new ASTnode("addop","","-");
+				
+				ASTnode *temp_node1 = new ASTnode("","","");
+				ASTnode *temp_node2 = new ASTnode("","","");
+
+				$<astnode>$->children.push_back(temp_node1);
+				$<astnode>$->children.push_back(temp_node2);
+			}
+			;
+mulop:		'*'
+			{
+				$<astnode>$ = new ASTnode("mulop","","*");
+				
+				ASTnode *temp_node1 = new ASTnode("","","");
+				ASTnode *temp_node2 = new ASTnode("","","");
+
+				$<astnode>$->children.push_back(temp_node1);
+				$<astnode>$->children.push_back(temp_node2);
+			}|
+			'/'
+			{
+				$<astnode>$ = new ASTnode("mulop","","/");
+				
+				ASTnode *temp_node1 = new ASTnode("","","");
+				ASTnode *temp_node2 = new ASTnode("","","");
+
+				$<astnode>$->children.push_back(temp_node1);
+				$<astnode>$->children.push_back(temp_node2);
+			}
+			;
+if_stmt:	IF 
+			{
+				if_bool = true;
+
+				handle_if();
+
+				label_stack.push("label"+to_string(label_number));
+				label_number++;
+			}
+			'(' cond ')' decl stmt_list else_part 
+			ENDIF
+			{
+				if_bool = false;
+
+				tail_previous();
+				
+
+				function_code <<"label "<< label_stack.top() << "\n";
+				label_stack.pop();
+			}
+			;
+else_part:	ELSE 
+			{
+				if_bool = false;
+
+
+				tail_previous();
+
+				handle_if();
+				
+				string label_string1 = label_stack.top();
+				label_stack.pop();
+				label_stack.push("label"+to_string(label_number));
+				label_number++;
+
+				string label_string2 = label_stack.top();
+
+				function_code <<"jmp "<< label_string2 << "\n";
+				function_code <<"label "<< label_string1 << "\n";
+
+			}
+			decl stmt_list |
+			;
+cond:		expr compop expr
+			{
+				vector<int> ret1 = postorder($1, register_number, 0);
+				int reg1 = ret1[0];
+				register_number = ret1[0];
+				vector<int> ret2 = postorder($3, register_number, 0);
+				int reg2 = ret2[0];
+				register_number = ret2[0];
+
+				string label_string = getLabelString(if_bool, while_bool, label_stack, while_label_stack);
+				if_bool = false;
+				while_bool = false;
+
+				if (ret1[1] == 1 || ret2[1] == 1)
+					function_code << "cmpr r" << reg1 - 1 << " r" << reg2 - 1 << "\n";
+				else
+					function_code << "cmpi r" << reg1 - 1 << " r" << reg2 - 1 << "\n";
+
+				char op = $2[0];
+				switch (op)
+				{
+				case '<':
+					function_code << "jge " << label_string << "\n";
+					break;
+				case '>':
+					function_code << "jle " << label_string << "\n";
+					break;
+				case '=':
+					function_code << "jne " << label_string << "\n";
+					break;
+				case '!':
+					function_code << "jeq " << label_string << "\n";
+					break;
+				case '<=':
+					function_code << "jgt " << label_string << "\n";
+					break;
+				case '>=':
+					function_code << "jlt " << label_string << "\n";
+					break;
+				}
+				
+			}
+			;
+compop:		'<'
+			{strcpy($$,"<");}|
+			'>'
+			{strcpy($$,">");}|
+			'='
+			{strcpy($$,"=");}|
+			'!''='
+			{strcpy($$,"!=");}|
+			'<''='
+			{strcpy($$,"<=");}|
+			'>''='
+			{strcpy($$,">=");}
+			;
+while_stmt:	WHILE {
+	while_bool = true;
+
+	handle_if();
+
+	while_label_stack.push("labelw"+to_string(while_label_number));
+	while_label_number++;
+
+	while_label_stack.push("labelw"+to_string(while_label_number));
+	while_label_number++;
+
+	function_code <<"label "<< while_label_stack.top() << "\n";
+} '(' cond ')' decl aug_stmt_list 
+ENDWHILE
+{
+	tail_previous();
+
+	function_code <<"jmp "<< while_label_stack.top() << "\n";
+	while_label_stack.pop();
+	function_code <<"label "<< while_label_stack.top() << "\n";
+	while_label_stack.pop();
+}
+			;
+aug_stmt_list: aug_stmt aug_stmt_list| 
+		;
+aug_stmt: base_stmt |aug_if_stmt| while_stmt|
+CONTINUE
+{
+	function_code<<"jmp "<< while_label_stack.top() << "\n";
+}';'
+|BREAK
+{
+	
+	string top_label = while_label_stack.top();
+	while_label_stack.pop();
+	string next_label = while_label_stack.top();
+	function_code << "jmp " << next_label << "\n";
+	while_label_stack.push(top_label);
+
+}';'
+; 
+aug_if_stmt: IF
+{
+	if_bool = true;
+
+	handle_if();
+
+	label_stack.push("label" + to_string(label_number));
+	label_number++;
+
+} '(' cond ')' decl aug_stmt_list aug_else_part 
+ENDIF
+{
+
+	if_bool = false;
+
+	tail_previous();
+
+	function_code << "label " << label_stack.top() << "\n";
+	label_stack.pop();
+}
+; 
+aug_else_part: ELSE
+{
+	if_bool = false;
+
+	tail_previous();
+
+	handle_if();
+
+	string label1 = label_stack.top();
+	label_stack.pop();
+	label_stack.push("label" + to_string(label_number));
+	label_number++;
+	string label2 = label_stack.top();
+
+	function_code << "jmp " << label2 << "\n";
+	function_code << "label " << label1 << "\n";
+
+} decl aug_stmt_list|
+;
+%%

@@ -1,0 +1,224 @@
+{
+  "tests": [
+    {
+      "name": "test1",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test1.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test1.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test2",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test2.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test2.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test3",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test3.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test3.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test4",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test4.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test4.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test5",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test5.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test5.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test6",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test6.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test6.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test7",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test7.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test7.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test8",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test8.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test8.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test9",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test9.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test9.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test10",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test10.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test10.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test11",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test11.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test11.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test12",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test12.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test12.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test13",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test13.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test13.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test14",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test14.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test14.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test15",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test15.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test15.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test16",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test16.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test16.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test17",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test17.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test17.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test18",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test18.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test18.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test19",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test19.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test19.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test20",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test20.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test20.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test21",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test21.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test21.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    },
+    {
+      "name": "test22",
+      "setup": "rm -rf inputs outputs; unzip inputs.zip; unzip outputs.zip;make compiler;chmod +x runme;./runme inputs/test22.micro delme.txt",
+      "run": "diff -w delme.txt outputs/test22.out",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 2,
+      "points": 1
+    }
+  ]
+}
